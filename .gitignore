@@ -1,0 +1,9 @@
+# data & environment
+data/
+venv/
+__pycache__/
+*.pyc
+
+# editor/OS junk
+.vscode/
+.DS_Store
