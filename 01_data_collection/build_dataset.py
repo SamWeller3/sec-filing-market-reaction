@@ -1,20 +1,21 @@
 """
-Step 3 of Phase 1: combine the filings metadata + price history into one
+Combine the filings metadata + price history into one
 master table, and sanity-check that every filing has enough surrounding
-price data to actually be usable in Phase 3's event study.
-
-Doesn't do any NLP or statistics yet -- that's Phase 2/3. This step is just
-"do we have a clean, joinable dataset."
+price data to actually be usable in the event study.
 
 Usage:
     python build_dataset.py
 """
 
+import os
+import sys
+
 import pandas as pd
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
-ESTIMATION_WINDOW_TRADING_DAYS = 250  # ~1 trading year, for the Phase 3 market model
+ESTIMATION_WINDOW_TRADING_DAYS = 250  # ~1 trading year, for the market-model regression later on
 EVENT_WINDOW_TRADING_DAYS = 5  # days after filing we need price data for
 
 
@@ -71,7 +72,7 @@ def main():
     master = pd.DataFrame(rows)
     master.to_parquet(config.MASTER_DATASET_PATH, index=False)
 
-    print("\n--- Phase 1 summary ---")
+    print("\nSummary:")
     print(f"Usable filing-events:            {len(master)}")
     print(f"Dropped (no filing text):         {dropped_no_text}")
     print(f"Dropped (not enough history):     {dropped_insufficient_history}")

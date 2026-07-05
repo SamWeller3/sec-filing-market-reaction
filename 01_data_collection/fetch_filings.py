@@ -1,11 +1,12 @@
 """
-Step 1 of Phase 1: pull every 8-K filed by your ticker basket in the lookback
-window, and download the actual filing text -- including press-release
-exhibits, not just the cover-page wrapper -- for each one.
+Pull every 8-K filed by your ticker basket in the lookback window, and
+download the actual filing text (including press-release exhibits, not
+just the cover-page wrapper) for each one.
 """
 
 import os
 import re
+import sys
 import time
 from datetime import datetime, timedelta
 
@@ -14,6 +15,9 @@ import requests
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import warnings
 
+# Let this script find config.py at the repo root, regardless of which
+# subfolder it's sitting in.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
@@ -75,6 +79,8 @@ def get_exhibit_documents(cik: str, accession_number: str) -> list[str]:
     for item in items:
         name = item.get("name", "")
         item_type = item.get("type", "")
+        if not name.lower().endswith((".htm", ".html")):
+            continue
         if EXHIBIT_NAME_PATTERN.search(name) or EXHIBIT_NAME_PATTERN.search(item_type):
             exhibit_files.append(name)
     return exhibit_files
@@ -90,7 +96,7 @@ def download_document_text(cik: str, accession_number: str, document_name: str) 
     if document_name.lower().endswith((".htm", ".html")):
         soup = BeautifulSoup(resp.text, "lxml")
 
-        # Strip hidden iXBRL cover-page facts -- these aren't meant to be
+        # Strip hidden iXBRL cover-page facts. They aren't meant to be
         # visible, but get_text() ignores CSS and would flatten them into
         # the output as garbage otherwise.
         for hidden in soup.find_all(style=lambda v: v and "display:none" in v.replace(" ", "").lower()):
@@ -114,7 +120,7 @@ def download_filing_text(cik: str, accession_number: str, primary_document: str)
             continue
         try:
             exhibit_text = download_document_text(cik, accession_number, exhibit_name)
-            parts.append(f"\n\n--- EXHIBIT: {exhibit_name} ---\n\n{exhibit_text}")
+            parts.append(f"\n\n[EXHIBIT: {exhibit_name}]\n\n{exhibit_text}")
         except Exception as e:
             print(f"    (exhibit {exhibit_name} failed: {e})")
         time.sleep(config.SEC_REQUEST_DELAY_SECONDS)

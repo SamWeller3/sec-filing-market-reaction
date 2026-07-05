@@ -1,26 +1,29 @@
 """
-Step 2 of Phase 1: pull daily historical price data for every ticker in the
-basket, covering enough history before/after each filing to later run the
-market-model event study in Phase 3.
+Pull daily historical price data for every ticker in the basket, covering
+enough history before/after each filing to later run the market-model
+event study.
 
 Uses yfinance for now since this is a batch/historical pull, not the live
-feed -- no signup needed. Swap this out for Alpaca's historical endpoint
+feed, and it needs no signup. Swap this out for Alpaca's historical endpoint
 later if you want the whole project on one data vendor for consistency.
 
 Usage:
     python fetch_prices.py
 """
 
+import os
+import sys
 import time
 
 import pandas as pd
 import yfinance as yf
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
 # Extra padding around the 8-K lookback window:
 #   - ~13 months back gives a ~250-trading-day estimation window before the
-#     earliest filing (needed for the market-model regression in Phase 3).
+#     earliest filing (needed for the market-model regression later on).
 #   - 15 days forward covers the reaction window after the most recent filing.
 PRICE_START_PADDING_DAYS = config.LOOKBACK_DAYS + 380
 PRICE_END_PADDING_DAYS = 15
@@ -48,7 +51,7 @@ def fetch_ticker_history(ticker: str) -> pd.DataFrame:
 
 
 def fetch_market_benchmark() -> pd.DataFrame:
-    """SPY as the market proxy for the market-model regression in Phase 3."""
+    """SPY as the market proxy for the market-model regression."""
     hist = fetch_ticker_history("SPY")
     hist = hist.rename(columns={"daily_return": "market_return"})
     return hist[["date", "market_return"]]
@@ -69,11 +72,11 @@ def main():
                 continue
             hist = hist.merge(market, on="date", how="left")
             # NOTE: this is a naive excess return (stock return minus market
-            # return), just for a quick sanity check in Phase 1. The real
-            # abnormal return -- estimating each stock's beta via regression
-            # over a pre-event window, then computing actual minus expected
-            # return -- gets computed properly per-event in Phase 3. Don't
-            # use this column as your event-study result.
+            # return), just for a quick sanity check here. The real abnormal
+            # return (estimating each stock's beta via regression over a
+            # pre-event window, then computing actual minus expected return)
+            # gets computed properly per-event later on. Don't use this
+            # column as your event-study result.
             hist["excess_return_naive"] = hist["daily_return"] - hist["market_return"]
             all_prices.append(hist)
             print(f"  -> {len(hist)} trading days")

@@ -4,3 +4,8 @@ lxml
 pandas
 pyarrow
 yfinance
+anthropic
+python-dotenv
+scipy
+statsmodels
+matplotlib

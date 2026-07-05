@@ -3,6 +3,7 @@ data/
 venv/
 __pycache__/
 *.pyc
+.env
 
 # editor/OS junk
 .vscode/

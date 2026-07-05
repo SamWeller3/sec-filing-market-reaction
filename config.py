@@ -1,9 +1,9 @@
 """
-Phase 1 configuration: the company basket, date range, and SEC access settings.
+Project configuration: the company basket, date range, and SEC access settings.
 """
 
-# --- SEC identifies you by this header on every request. This is not optional --
-# SEC will rate-limit/block you if you use a generic or missing User-Agent.
+# SEC identifies you by this header on every request; it's not optional.
+# SEC will rate-limit or block you if you use a generic or missing User-Agent.
 # Format they ask for: "Sample Company Name AdminContact@sample.com"
 SEC_USER_AGENT = "Sam Weller samoweller@comcast.net"
 
@@ -13,7 +13,7 @@ SEC_REQUEST_DELAY_SECONDS = 0.2
 # How far back to pull 8-K filings.
 LOOKBACK_DAYS = 365
 
-# A diversified basket across sectors -- avoids the whole dataset being one
+# A diversified basket across sectors, so the dataset isn't dominated by one
 # industry's idiosyncratic news cycle. 40 large, liquid, well-covered names
 # means clean price data and a steady stream of 8-Ks to work with.
 TICKERS = [
@@ -40,4 +40,37 @@ DATA_DIR = "data"
 RAW_FILINGS_DIR = f"{DATA_DIR}/raw_filings"
 FILINGS_METADATA_PATH = f"{DATA_DIR}/filings_metadata.parquet"
 PRICES_PATH = f"{DATA_DIR}/prices.parquet"
-MASTER_DATASET_PATH = f"{DATA_DIR}/phase1_master.parquet"
+MASTER_DATASET_PATH = f"{DATA_DIR}/master_dataset.parquet"
+
+# NLP scoring
+
+# Haiku, not Sonnet: this is bulk classification across 500+ filings, and
+# the point of the labeling-sample validation step is to confirm a cheaper
+# model is actually good enough here, rather than assuming it.
+ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+
+# 8-K text (cover page + press release exhibit) gets truncated to this many
+# characters before scoring, mostly to control cost. Sentiment/materiality
+# doesn't need every line of a financial table, just the narrative content.
+MAX_FILING_CHARS = 6000
+
+FILING_SCORES_PATH = f"{DATA_DIR}/filing_scores.parquet"
+LABELING_SAMPLE_PATH = f"{DATA_DIR}/labeling_sample.csv"
+LABELING_SAMPLE_SIZE = 40
+LABELING_RANDOM_SEED = 42
+
+# Event study
+
+# Market-model regression window: the 250 trading days strictly before
+# filing_date. No gap before the event window, since 8-Ks aren't pre-scheduled
+# like earnings, so there's no pre-announcement drift to buffer against.
+ESTIMATION_WINDOW_TRADING_DAYS = 250
+
+# CAR windows. Both stay inside the 5-trading-day floor every event has
+# after its filing date, so nothing gets dropped or truncated.
+EVENT_WINDOW_PRIMARY_DAYS = 2      # CAR over [0, +2]
+EVENT_WINDOW_ROBUSTNESS_DAYS = 4   # CAR over [0, +4], robustness check
+
+ABNORMAL_RETURNS_PATH = f"{DATA_DIR}/abnormal_returns.parquet"
+EVENT_STUDY_RESULTS_PATH = f"{DATA_DIR}/event_study_results.csv"
+EVENT_STUDY_CHART_PATH = f"{DATA_DIR}/event_study_chart.png"
