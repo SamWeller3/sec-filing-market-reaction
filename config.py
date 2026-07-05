@@ -74,3 +74,30 @@ EVENT_WINDOW_ROBUSTNESS_DAYS = 4   # CAR over [0, +4], robustness check
 ABNORMAL_RETURNS_PATH = f"{DATA_DIR}/abnormal_returns.parquet"
 EVENT_STUDY_RESULTS_PATH = f"{DATA_DIR}/event_study_results.csv"
 EVENT_STUDY_CHART_PATH = f"{DATA_DIR}/event_study_chart.png"
+
+# Predictive model
+
+# Sector groupings reused from the TICKERS list above. Comments aren't
+# accessible at runtime, so this needs to exist as real data if sector is
+# going to be a feature.
+TICKER_SECTOR_MAP = {
+    "AAPL": "Tech", "MSFT": "Tech", "GOOGL": "Tech", "META": "Tech", "NVDA": "Tech",
+    "ORCL": "Tech", "CRM": "Tech", "ADBE": "Tech",
+    "JPM": "Financials", "BAC": "Financials", "GS": "Financials", "MS": "Financials",
+    "SCHW": "Financials", "BLK": "Financials", "AXP": "Financials",
+    "JNJ": "Healthcare", "UNH": "Healthcare", "PFE": "Healthcare", "MRK": "Healthcare", "ABBV": "Healthcare",
+    "AMZN": "Consumer", "WMT": "Consumer", "HD": "Consumer", "MCD": "Consumer",
+    "NKE": "Consumer", "SBUX": "Consumer", "TGT": "Consumer",
+    "XOM": "Energy", "CVX": "Energy", "COP": "Energy",
+    "BA": "Industrials", "CAT": "Industrials", "GE": "Industrials", "HON": "Industrials",
+    "DIS": "Comms/media", "NFLX": "Comms/media", "T": "Comms/media", "VZ": "Comms/media",
+    "TSLA": "Misc large-cap", "V": "Misc large-cap", "MA": "Misc large-cap",
+}
+
+MODEL_FEATURES_PATH = f"{DATA_DIR}/model_features.parquet"
+MODEL_COMPARISON_CHART_PATH = f"{DATA_DIR}/model_comparison_chart.png"
+
+CV_N_SPLITS = 5
+HOLDOUT_FRACTION = 0.2   # chronological, most-recent 20% of events
+RANDOM_SEED = 42         # model reproducibility only (e.g. RandomForest
+                         # bootstrap sampling), never the train/test split
