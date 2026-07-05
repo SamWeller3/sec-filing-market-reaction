@@ -10,3 +10,7 @@ scipy
 statsmodels
 matplotlib
 scikit-learn
+confluent-kafka
+alpaca-py
+streamlit
+joblib

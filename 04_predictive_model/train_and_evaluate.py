@@ -15,6 +15,7 @@ Usage:
 import os
 import sys
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -187,6 +188,20 @@ def main():
         print_model_comparison(name, results[name]["cv"], results[name]["holdout"], baseline_holdout)
 
     make_comparison_chart(results)
+
+    # Refit on the full dataset (not just the holdout training slice) and
+    # persist for the real-time pipeline. Ridge, since it's the simpler,
+    # more interpretable of the two real candidates, evaluated above as
+    # roughly tied with RandomForest and neither beat the zero baseline.
+    # Anything this pipeline predicts should be read as illustrative, not
+    # as a validated trading signal.
+    final_pipeline = get_models()["Ridge"]
+    final_pipeline.fit(df[ALL_FEATURES], df["car_primary"])
+    joblib.dump(final_pipeline, config.MODEL_PIPELINE_PATH)
+    print(f"\nPersisted the Ridge pipeline (refit on all {len(df)} rows) to "
+          f"{config.MODEL_PIPELINE_PATH} for the real-time pipeline. This model did "
+          f"not beat the zero baseline in the evaluation above, so treat its live "
+          f"predictions as illustrative, not as a validated signal.")
 
     print("\n" + "=" * 70)
     print("Notes:")

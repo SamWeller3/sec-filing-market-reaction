@@ -101,3 +101,18 @@ CV_N_SPLITS = 5
 HOLDOUT_FRACTION = 0.2   # chronological, most-recent 20% of events
 RANDOM_SEED = 42         # model reproducibility only (e.g. RandomForest
                          # bootstrap sampling), never the train/test split
+
+# Real-time pipeline
+
+KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+KAFKA_FILINGS_TOPIC = "filings"
+KAFKA_PRICES_TOPIC = "prices"
+KAFKA_CONSUMER_GROUP = "reaction-processor"
+
+FILING_POLL_INTERVAL_SECONDS = 30
+REACTION_WINDOW_TRADING_DAYS = EVENT_WINDOW_PRIMARY_DAYS  # reuse the [0,+2] window
+
+REALTIME_DB_PATH = f"{DATA_DIR}/realtime_reactions.db"
+MODEL_PIPELINE_PATH = f"{DATA_DIR}/model_pipeline.joblib"
+
+REPLAY_SPEEDUP_FACTOR = 3600  # 1 real second = 1 simulated hour

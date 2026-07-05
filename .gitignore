@@ -7,4 +7,8 @@ __pycache__/
 
 # editor/OS junk
 .vscode/
+.claude/
 .DS_Store
+
+# local project notes, not for the public repo
+CLAUDE.md
