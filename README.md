@@ -1,50 +1,108 @@
-# Phase 1 — Data Collection
+# SEC Filing Market Reaction
 
-Goal: build a clean, static dataset of 8-K filings + matching price history,
-so Phase 2 (NLP scoring) and Phase 3 (event study + predictive model) have
-something solid to work on. Nothing here is real-time yet — that's Phase 5,
-after the science is validated.
+Does the sentiment or materiality of an SEC 8-K filing predict how a
+stock's price reacts? I built the full pipeline to find out: pull filings
+and prices, score each filing with an LLM, run an event study, train a
+model on it, then wrap the whole thing in a real-time streaming setup.
+
+Short version of the answer: filings move prices a little on average, but
+the sentiment score doesn't predict which way or how much. That's in the
+results section below, reported straight rather than massaged into
+something more exciting.
 
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+python -m venv venv
+venv/Scripts/pip install -r requirements.txt   # venv\Scripts\pip on Windows
+cp .env.example .env
 ```
 
-## Run, in order
+Fill in `ANTHROPIC_API_KEY` in `.env` for the scoring step. If you want to
+run the real-time pipeline against live data you'll also need
+`ALPACA_API_KEY` / `ALPACA_API_SECRET` (free tier, real-time IEX feed).
+
+Run everything from the repo root — `python 01_data_collection/fetch_filings.py`,
+not `cd`'d into the folder.
+
+## What's in each folder
+
+`01_data_collection` pulls a year of 8-Ks for 40 tickers from EDGAR plus
+daily prices and the SPY benchmark from yfinance, and joins them into one
+dataset.
+
+`02_nlp_scoring` runs each filing through Claude Haiku for a sentiment
+score and a materiality rating, then checks the model against 40 filings
+I labeled by hand before trusting the rest.
+
+`03_event_study` is the actual test: a market-model regression per stock
+against SPY, abnormal returns around each filing, significance tests on
+the whole thing.
+
+`04_predictive_model` trains a model on filing features to predict the
+reaction, using time-based cross-validation (a random split would leak
+future data into training, so that's not really optional for a time
+series).
+
+`05_realtime_pipeline` is Kafka + Docker Compose ingesting filings and
+prices, a processor that predicts and then tracks the actual reaction as
+it unfolds, and a Streamlit dashboard. There's a replay mode that runs
+historical data through it on a sped-up clock, since live 8-Ks don't
+exactly show up on a demo schedule.
+
+## Results
+
+528 filings, 40 tickers. The average abnormal return in the 3 days after
+a filing is about -0.5% and it's statistically significant (p = 0.01) —
+so something real is happening. But sentiment score and materiality
+barely correlate with it on their own (r ≈ 0, p > 0.7), and even after
+throwing more features at it in the predictive model — sector, filing
+length, event type, each stock's historical beta — nothing beat just
+guessing "no reaction" on data the model hadn't seen.
+
+Take this as a first pass, not a final word — one year of data and one
+LLM's sentiment scores isn't a lot to generalize from. But at least with
+this setup, 8-K text doesn't seem to carry much signal about how the
+stock moves afterward.
+
+## Running everything
 
 ```bash
-python fetch_filings.py    # pulls every 8-K for your basket, downloads the text
-python fetch_prices.py     # pulls daily price history + SPY benchmark
-python build_dataset.py    # joins them, drops unusable rows, prints a summary
+python 01_data_collection/fetch_filings.py
+python 01_data_collection/fetch_prices.py
+python 01_data_collection/build_dataset.py
+
+python 02_nlp_scoring/score_filings.py
+python 02_nlp_scoring/create_labeling_sample.py   # hand-label data/labeling_sample.csv, then:
+python 02_nlp_scoring/validate_scoring.py
+
+python 03_event_study/compute_abnormal_returns.py
+python 03_event_study/run_significance_tests.py
+
+python 04_predictive_model/build_features.py
+python 04_predictive_model/train_and_evaluate.py
 ```
 
-`fetch_filings.py` is the slow one — it's making one HTTP request per filing
-to stay within SEC's rate-limit guidance, so expect it to take a while with
-~40 tickers over a year. It's safe to re-run; it skips filings it's already
-downloaded.
+Real-time pipeline, each command in its own terminal:
 
-## What you'll have at the end
+```bash
+docker compose up -d                                  # Kafka + kafka-ui, localhost:8080
 
-`data/phase1_master.parquet` — one row per usable 8-K filing event, with a
-path to the filing's raw text and confirmation that there's enough price
-history before/after it to run the Phase 3 event study.
+python 05_realtime_pipeline/replay_producer.py         # or filing_producer.py + price_producer.py live
+python 05_realtime_pipeline/reaction_processor.py
+streamlit run 05_realtime_pipeline/dashboard.py        # localhost:8501
+```
 
-## Before you touch Phase 2, sanity-check the output
+Replay costs nothing and needs no keys. Live mode needs Alpaca creds and
+calls the Anthropic API per new filing found — a few cents for a short
+run, same rate as the scoring step above.
 
-- How many filings did you actually get? (printed at the end of `build_dataset.py`)
-- Is any single ticker or time period wildly overrepresented?
-- Open a couple of the raw filing text files in `data/raw_filings/` — do they
-  look like real, readable 8-K content, or is the HTML-to-text conversion
-  leaving in garbage (nav menus, XBRL tags, etc.)? If it's messy, that's worth
-  fixing now — bad text in means bad sentiment scores out in Phase 2.
+## A couple of things worth knowing
 
-## Known things to adjust
-
-- `config.SEC_USER_AGENT` is set to your name/email, which is what SEC
-  actually wants (a real identifying contact, not a placeholder) — leave it.
-- `TICKERS` is a starter basket of 40 diversified large-caps. Feel free to
-  swap in others, just keep it diversified across sectors so you're not
-  accidentally studying "how Big Tech reacts to news" only.
-- `fetch_prices.py` uses yfinance for this historical pull since it needs no
-  signup. When you get to Phase 5 (real-time), that's where Alpaca comes in.
+SEC EDGAR gets a real User-Agent and a rate limit on every request —
+don't strip that out if you touch the fetch scripts. Haiku does the bulk
+scoring instead of a bigger model because it's cheap enough to run on
+500+ filings, and the hand-labeling step exists specifically to check
+that the cheaper model is actually good enough rather than just assuming
+it. Everything here runs on free data (EDGAR, Alpaca's free tier) — no
+paid APIs anywhere in the pipeline.
